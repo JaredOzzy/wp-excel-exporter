@@ -1,0 +1,14 @@
+{
+    "name": "wordpress-excel-export",
+    "description": "Export WordPress data to Excel with customizable templates and filters",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "suggest": {
+        "phpoffice/phpspreadsheet": "^1.29 for better Excel file generation with formatting and styling"
+    },
+    "autoload": {
+        "psr-4": {
+            "WEE\\": "includes/"
+        }
+    }
+} 
