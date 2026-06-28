@@ -1,0 +1,30 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Build artifacts
+build/
+dist/
+*.zip
+
+# Dependencies
+node_modules/
+vendor/
+
+# PHP
+composer.phar
+
+# Logs / temp
+*.log
+*.cache
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
