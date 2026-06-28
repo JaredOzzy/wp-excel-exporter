@@ -693,9 +693,13 @@
     transition: background-color 0.2s ease;
 }
 
-.wee-product-item:hover,
-.wee-product-item.wee-selected {
+.wee-product-item:hover {
     background-color: #f8f9fa;
+}
+
+.wee-product-item.wee-product-selected {
+    background-color: #e7f3ff;
+    border-left: 3px solid #0066cc;
 }
 
 .wee-product-item:last-child {
@@ -707,10 +711,76 @@
     color: #1d2327;
 }
 
+.wee-product-sku {
+    font-size: 12px;
+    color: #6c757d;
+    margin-top: 2px;
+}
+
 .wee-product-meta {
     font-size: 12px;
     color: #6c757d;
     margin-top: 2px;
+}
+
+.wee-no-results {
+    padding: 10px;
+    text-align: center;
+    color: #666;
+    font-style: italic;
+}
+
+/* Selected Products Display */
+.wee-selected-products {
+    margin-top: 10px;
+}
+
+.wee-selected-products-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.wee-selected-product-tag {
+    display: inline-flex;
+    align-items: center;
+    background: white;
+    border: 1px solid #0066cc;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 2px;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.wee-selected-product-tag:hover {
+    background: #f0f8ff;
+    box-shadow: 0 2px 4px rgba(0, 102, 204, 0.2);
+}
+
+.wee-selected-product-tag .wee-remove-product {
+    background: none;
+    border: none;
+    color: #d63638;
+    cursor: pointer;
+    margin-left: 5px;
+    padding: 0;
+    font-weight: bold;
+    font-size: 16px;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+
+.wee-selected-product-tag .wee-remove-product:hover {
+    color: #b32d2e;
+    transform: scale(1.2);
+}
+
+.wee-clear-all-products {
+    padding: 2px 8px !important;
+    height: auto !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
 }
 
 /* Template Management */
@@ -853,6 +923,21 @@
     color: #ffffff;
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(214, 54, 56, 0.4);
+}
+
+.wee-template-actions .wee-duplicate-template-btn {
+    background: #ffffff;
+    border-color: #2271b1;
+    color: #2271b1;
+    box-shadow: 0 1px 3px rgba(34, 113, 177, 0.2);
+}
+
+.wee-template-actions .wee-duplicate-template-btn:hover {
+    background: linear-gradient(135deg, #2271b1 0%, #135e96 100%);
+    border-color: #2271b1;
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(34, 113, 177, 0.4);
 }
 
 .wee-template-description {
@@ -2100,12 +2185,1092 @@
     }
 }
 
-@media (max-width: 480px) {
-    .wee-search-actions {
-        flex-direction: column;
+
+}
+
+.wee-save-field-group.saved {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    cursor: default;
+}
+
+.wee-save-field-group.saved:hover {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    transform: none;
+    box-shadow: none;
+}
+
+.wee-field-group-remove {
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 80px;
+}
+
+.wee-field-group-remove:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+.wee-add-field-group {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 14px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.wee-add-field-group:hover {
+    background: linear-gradient(135deg, #218838 0%, #1ea085 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(40, 167, 69, 0.3);
+}
+
+.wee-add-field-group:before {
+    content: '+';
+    font-size: 20px;
+    font-weight: bold;
+}
+
+/* Hidden template for new field groups */
+.wee-field-group.wee-hidden {
+    display: none !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .wee-field-checkboxes {
+        grid-template-columns: 1fr;
+        gap: 10px;
     }
     
-    .wee-section-count {
-        display: none;
+    .wee-field-group-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
     }
-} 
+    
+    .wee-field-group-name {
+        margin-right: 0;
+    }
+    
+    .wee-field-group-actions {
+        align-self: flex-end;
+        min-width: auto;
+    }
+}
+
+/* Hide grouped fields from column ordering */
+.wee-grouped-field-hidden {
+    display: none !important;
+}
+
+/* Field Groups Management */
+
+/* Field Groups in Column Ordering */
+.wee-column-section .wee-section-title:contains("Field Groups") {
+    color: #0073aa;
+    font-weight: 600;
+}
+
+.wee-column-section .wee-section-title:contains("Field Groups") + .wee-section-toggle {
+    background: linear-gradient(135deg, #0073aa 0%, #005a87 100%);
+    border-color: #005a87;
+}
+
+.wee-column-section .wee-section-title:contains("Field Groups") + .wee-section-toggle:hover {
+    background: linear-gradient(135deg, #005a87 0%, #004a6b 100%);
+}
+
+/* Hide grouped fields from column ordering */
+.wee-field-checkboxes .wee-no-fields {
+    color: #666;
+    font-style: italic;
+    padding: 10px;
+    text-align: center;
+    background: #f9f9f9;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+.wee-field-group-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.wee-no-columns-selected {
+    color: #666;
+    font-style: italic;
+    padding: 20px;
+    text-align: center;
+    background: #f9f9f9;
+    border: 2px dashed #ddd;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+/* Field Search Functionality */
+.wee-field-search-container {
+    margin-bottom: 15px;
+    position: relative;
+}
+
+.wee-field-search {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #fff;
+    transition: all 0.3s ease;
+}
+
+.wee-field-search:focus {
+    outline: none;
+    border-color: #0073aa;
+    box-shadow: 0 0 0 2px rgba(0, 115, 170, 0.2);
+}
+
+/* Field Groups Management */
+.wee-field-groups {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border: 2px solid #e1e5e9;
+    border-radius: 12px;
+    margin-top: 20px;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.wee-field-groups-header {
+    padding: 20px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-bottom: 1px solid #e1e5e9;
+}
+
+.wee-field-groups-header h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.wee-field-groups-container {
+    padding: 20px;
+}
+
+.wee-field-group {
+    background: #ffffff;
+    border: 1px solid #e1e5e9;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.wee-field-group:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.wee-field-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-bottom: 1px solid #e1e5e9;
+}
+
+.wee-field-group-header h5 {
+    margin: 0;
+    color: #333;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.wee-remove-field-group {
+    background: none;
+    border: none;
+    color: #d63638;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.wee-remove-field-group:hover {
+    background: #d63638;
+    color: #fff;
+}
+
+.wee-field-group-content {
+    padding: 20px;
+}
+
+.wee-field-selection-grid {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #e1e5e9;
+    border-radius: 6px;
+    background: #f8f9fa;
+}
+
+.wee-field-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e1e5e9;
+    transition: all 0.3s ease;
+}
+
+.wee-field-item:last-child {
+    border-bottom: none;
+}
+
+.wee-field-item:hover {
+    background: #e7f3ff;
+}
+
+.wee-field-checkbox {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.wee-field-checkbox input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+.wee-field-checkbox span {
+    font-size: 14px;
+    color: #333;
+}
+
+.wee-field-groups-actions {
+    padding: 20px;
+    border-top: 1px solid #e1e5e9;
+    text-align: center;
+}
+
+.wee-add-field-group {
+    background: #0073aa;
+    color: #fff;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wee-add-field-group:hover {
+    background: #005a87;
+    transform: translateY(-1px);
+}
+
+.wee-add-field-group .dashicons {
+    font-size: 16px;
+}
+
+.wee-no-fields {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+    font-style: italic;
+}
+    border-color: #0073aa;
+    box-shadow: 0 0 0 3px rgba(0, 115, 170, 0.1);
+}
+
+.wee-field-search::placeholder {
+    color: #999;
+    font-style: italic;
+}
+
+/* Field Checkbox Enhancements */
+.wee-field-checkbox {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.wee-field-checkbox.hidden {
+    display: none !important;
+}
+
+.wee-field-checkbox input[type="checkbox"]:checked + span {
+    font-weight: 600;
+    color: #0073aa;
+}
+
+.wee-field-checkbox:hover {
+    background: #f0f8ff;
+    border-color: #0073aa;
+}
+
+/* Field Group Status Indicators */
+.wee-field-group.saved {
+    border-left: 4px solid #28a745;
+}
+
+.wee-field-group.unsaved {
+    border-left: 4px solid #ffc107;
+}
+
+.wee-save-field-group.saved {
+    background: #28a745 !important;
+    color: white !important;
+}
+
+.wee-save-field-group.unsaved {
+    background: #ffc107 !important;
+    color: #212529 !important;
+}
+
+/* Column Ordering - Enhanced Remove Button */
+.wee-selected-column-item {
+    display: flex;
+    align-items: center;
+    background: #f8f9fa;
+    border: 1px solid #e2e4e7;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    cursor: move;
+    transition: all 0.2s ease;
+}
+
+.wee-selected-column-item:hover {
+    background: #f0f0f1;
+    border-color: #c3c4c7;
+}
+
+.wee-column-drag-handle {
+    margin-right: 12px;
+    color: #8c8f94;
+    cursor: move;
+}
+
+.wee-column-drag-handle:hover {
+    color: #2271b1;
+}
+
+.wee-column-info {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-width: 0;
+}
+
+.wee-column-label {
+    flex: 1;
+    min-width: 0;
+}
+
+.wee-column-label strong {
+    color: #1d2327;
+    font-size: 14px;
+}
+
+.wee-custom-name {
+    color: #646970;
+    font-style: italic;
+}
+
+.wee-remove-column-btn {
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    margin-left: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+}
+
+.wee-remove-column-btn:hover {
+    background: #dc3545;
+    color: white;
+}
+
+.wee-remove-icon {
+    font-size: 16px;
+    font-weight: bold;
+    color: #dc3545;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+
+.wee-remove-column-btn:hover .wee-remove-icon {
+    color: white;
+}
+
+/* Combine Selected Fields Section - Enhanced Design */
+.wee-combine-fields-section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px solid #6c757d;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.wee-combine-header {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: white;
+    border-radius: 10px 10px 0 0;
+    padding: 20px 25px;
+    margin: -1px -1px 0 -1px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.wee-header-icon {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.wee-header-icon .dashicons {
+    font-size: 20px;
+    color: white;
+}
+
+.wee-header-content h2 {
+    color: white;
+    margin: 0 0 5px 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.wee-header-content .wee-card-subtitle {
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0;
+    font-size: 14px;
+}
+
+.wee-combine-fields-content {
+    padding: 25px;
+}
+
+.wee-combine-fields-intro {
+    margin-bottom: 25px;
+}
+
+.wee-info-box {
+    background: #d1ecf1;
+    border: 1px solid #bee5eb;
+    border-left: 4px solid #17a2b8;
+    border-radius: 8px;
+    padding: 15px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.wee-info-box .dashicons {
+    color: #17a2b8;
+    font-size: 18px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.wee-info-box p {
+    margin: 0;
+    color: #0c5460;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.wee-combine-fields-form {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.wee-form-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    align-items: flex-end;
+}
+
+.wee-form-row:last-child {
+    margin-bottom: 0;
+}
+
+.wee-form-group-large {
+    flex: 1;
+}
+
+.wee-form-group-medium {
+    flex: 0 0 200px;
+}
+
+.wee-form-group-small {
+    flex: 0 0 150px;
+}
+
+.wee-form-group-full {
+    flex: 1;
+}
+
+.wee-form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #495057;
+    font-size: 14px;
+}
+
+.wee-input-large,
+.wee-select-medium,
+.wee-input-small {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.wee-input-large:focus,
+.wee-select-medium:focus,
+.wee-input-small:focus {
+    border-color: #6c757d;
+    box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.1);
+    outline: none;
+}
+
+.wee-selected-fields-preview {
+    background: #f8f9fa;
+    border: 2px dashed #ced4da;
+    border-radius: 8px;
+    padding: 20px;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.wee-selected-fields-preview.has-fields {
+    background: #e7f3ff;
+    border-color: #0066cc;
+    border-style: solid;
+}
+
+.wee-no-fields-message {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #6c757d;
+    text-align: center;
+}
+
+.wee-no-fields-message .dashicons {
+    color: #ffc107;
+    font-size: 18px;
+}
+
+.wee-no-fields-message p {
+    margin: 0;
+    font-style: italic;
+}
+
+.wee-combine-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-start;
+    align-items: center;
+    padding-top: 15px;
+    border-top: 1px solid #dee2e6;
+}
+
+.wee-add-combined-btn {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+    border: none !important;
+    color: white !important;
+    padding: 10px 20px !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3) !important;
+}
+
+.wee-add-combined-btn:hover {
+    background: linear-gradient(135deg, #218838 0%, #1abc9c 100%) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4) !important;
+}
+
+.wee-clear-combined-btn {
+    background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%) !important;
+    border: none !important;
+    color: white !important;
+    padding: 10px 20px !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3) !important;
+}
+
+.wee-clear-combined-btn:hover {
+    background: linear-gradient(135deg, #c82333 0%, #c0392b 100%) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4) !important;
+}
+
+.wee-combined-fields-list {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    min-height: 60px;
+}
+
+.wee-combined-fields-list:empty::before {
+    content: "Combined fields will appear here...";
+    color: #6c757d;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+}
+
+/* Column Ordering Section - Enhanced Design */
+.wee-column-ordering-section {
+    background: linear-gradient(135deg, #f1f3f4 0%, #e8eaed 100%);
+    border: 2px solid #5f6368;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.wee-column-ordering-section .wee-card-header {
+    background: linear-gradient(135deg, #5f6368 0%, #3c4043 100%);
+    color: white;
+    border-radius: 10px 10px 0 0;
+    padding: 20px 25px;
+    margin: -1px -1px 0 -1px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.wee-column-ordering-content {
+    padding: 25px;
+}
+
+.wee-selected-columns-list {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    min-height: 100px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .wee-form-row {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .wee-form-group-medium,
+    .wee-form-group-small {
+        flex: 1;
+    }
+    
+    .wee-combine-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .wee-combine-actions button {
+        justify-content: center;
+    }
+}
+
+/* Combined Fields Functionality Styles */
+.wee-selected-fields-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.wee-selected-field-item {
+    background: #e7f3ff;
+    border: 1px solid #0066cc;
+    border-radius: 6px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.wee-selected-field-item:hover {
+    background: #d0e7ff;
+    border-color: #005bb5;
+}
+
+.wee-selected-field-item .wee-combine-field-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    cursor: pointer;
+    width: 100%;
+}
+
+.wee-selected-field-item .wee-combine-field-selector {
+    margin: 0;
+    cursor: pointer;
+}
+
+.wee-selected-field-item .dashicons {
+    color: #0066cc;
+    font-size: 16px;
+}
+
+.wee-selected-field-item .field-name {
+    color: #0066cc;
+    font-weight: 500;
+}
+
+/* Column Ordering List Styles */
+.wee-selected-column-item {
+    background: white;
+    border: 1px solid #e1e5e9;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.2s ease;
+}
+
+.wee-selected-column-item:hover {
+    border-color: #0073aa;
+    box-shadow: 0 2px 4px rgba(0, 115, 170, 0.1);
+}
+
+.wee-selected-column-item.wee-hidden-column {
+    opacity: 0.6;
+    background: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.wee-selected-column-item.wee-hidden-column .wee-column-label {
+    color: #6c757d;
+}
+
+.wee-column-drag-handle {
+    cursor: move;
+    color: #6c757d;
+    padding: 4px;
+}
+
+.wee-column-drag-handle:hover {
+    color: #0073aa;
+}
+
+.wee-column-info {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.wee-column-label {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.wee-column-label strong {
+    color: #1d2327;
+    font-weight: 600;
+}
+
+.wee-column-label .wee-custom-name {
+    color: #646970;
+    font-style: italic;
+}
+
+.wee-column-label .wee-combined-info {
+    color: #0073aa;
+    font-weight: 500;
+}
+
+.wee-column-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wee-show-hide-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #646970;
+}
+
+.wee-show-hide-toggle input[type="checkbox"] {
+    margin: 0;
+}
+
+.wee-toggle-text {
+    font-weight: 500;
+    min-width: 30px;
+}
+
+.wee-remove-column-btn {
+    background: #dc3232;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    transition: background-color 0.2s ease;
+}
+
+.wee-remove-column-btn:hover {
+    background: #a00;
+}
+
+.wee-remove-icon {
+    font-weight: bold;
+}
+
+/* Combined field specific styles */
+.wee-selected-column-item.wee-combined-field-item {
+    border-left: 4px solid #0073aa;
+    background: #f0f8ff;
+}
+
+.wee-selected-column-item.wee-combined-field-item .wee-column-label strong {
+    color: #0073aa;
+}
+
+.wee-combined-field-item {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.wee-combined-field-header {
+    background: #f8f9fa;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.wee-field-info h4 {
+    margin: 0 0 5px 0;
+    color: #495057;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.wee-field-info p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.wee-remove-combined-field {
+    background: #dc3545;
+    border: none;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.wee-remove-combined-field:hover {
+    background: #c82333;
+}
+
+.wee-remove-combined-field .dashicons {
+    font-size: 14px;
+}
+
+.wee-combined-field-details {
+    padding: 15px 20px;
+}
+
+.wee-combined-field-details p {
+    margin: 0;
+    color: #495057;
+    font-size: 14px;
+}
+/* Modal Styles */
+.wee-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wee-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+}
+
+.wee-modal-content {
+    position: relative;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: modalFadeIn 0.2s ease-out;
+}
+
+.wee-modal-content.wee-modal-large {
+    max-width: 1200px;
+    width: 95%;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.wee-modal-header {
+    padding: 25px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.wee-modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.wee-modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.wee-modal-close:hover {
+    background: #f3f4f6;
+    color: #1f2937;
+}
+
+.wee-modal-close .dashicons {
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+}
+
+.wee-modal-body {
+    padding: 25px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.wee-modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.wee-modal-cancel {
+    background: white;
+    border: 1px solid #d1d5db;
+    color: #374151;
+}
+
+.wee-modal-cancel:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}

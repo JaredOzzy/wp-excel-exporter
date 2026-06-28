@@ -3,7 +3,7 @@
 
 # Plugin details
 PLUGIN_NAME = wordpress-excel-export
-PLUGIN_VERSION = 1.0.1
+PLUGIN_VERSION = 1.0.18
 PACKAGE_NAME = $(PLUGIN_NAME)-$(PLUGIN_VERSION).zip
 
 # Directories
@@ -43,6 +43,18 @@ clean:
 	@rm -rf $(BUILD_DIR)
 	@echo "Clean complete."
 
+# Increment version number
+.PHONY: bump-version
+bump-version:
+	@echo "Current version: $(PLUGIN_VERSION)"
+	@$(eval NEW_VERSION := $(shell echo $(PLUGIN_VERSION) | awk -F. '{print $$1"."$$2"."$$3+1}'))
+	@echo "New version: $(NEW_VERSION)"
+	@sed -i.bak 's/PLUGIN_VERSION = $(PLUGIN_VERSION)/PLUGIN_VERSION = $(NEW_VERSION)/' Makefile
+	@sed -i.bak 's/Version: $(PLUGIN_VERSION)/Version: $(NEW_VERSION)/' wordpress-excel-export.php
+	@sed -i.bak "s/define('WEE_PLUGIN_VERSION', '[^']*')/define('WEE_PLUGIN_VERSION', '$(NEW_VERSION)')/" wordpress-excel-export.php
+	@rm -f Makefile.bak wordpress-excel-export.php.bak
+	@echo "Version bumped to $(NEW_VERSION)"
+
 # Create package for WordPress admin installation
 .PHONY: package
 package: clean
@@ -67,6 +79,11 @@ package: clean
 	
 	@echo "Package created: $(PACKAGE_NAME)"
 	@echo "You can now upload this file to WordPress Admin -> Plugins -> Add New -> Upload Plugin"
+
+# Create package with automatic version bump
+.PHONY: package-bump
+package-bump: bump-version package
+	@echo "Package created with new version: $(PACKAGE_NAME)"
 
 # Create package with version from plugin file
 .PHONY: package-version
@@ -112,11 +129,13 @@ info:
 	@echo ""
 	@echo "Available targets:"
 	@echo "  make package        - Create production package"
-	@echo "  make package-dev    - Create development package"
+	@echo "  make package-bump    - Bump version and create package"
+	@echo "  make package-dev     - Create development package"
 	@echo "  make package-version - Create package with version from plugin file"
-	@echo "  make install        - Install via WP-CLI (if available)"
-	@echo "  make clean          - Clean build directory"
-	@echo "  make info           - Show this information"
+	@echo "  make bump-version    - Increment version number only"
+	@echo "  make install         - Install via WP-CLI (if available)"
+	@echo "  make clean           - Clean build directory"
+	@echo "  make info            - Show this information"
 
 # Help target
 .PHONY: help
@@ -161,4 +180,10 @@ validate: check
 .PHONY: release
 release: validate package
 	@echo "Release package created: $(PACKAGE_NAME)"
+	@echo "Ready for distribution!"
+
+# Create release package with version bump
+.PHONY: release-bump
+release-bump: validate package-bump
+	@echo "Release package created with new version: $(PACKAGE_NAME)"
 	@echo "Ready for distribution!" 

@@ -3,7 +3,7 @@
  * Plugin Name: WordPress Excel Export
  * Plugin URI: https://github.com/your-username/wordpress-excel-export
  * Description: Export WordPress data to Excel with customizable templates and filters
- * Version: 1.0.1
+ * Version: 1.0.19
  * Author: GradeIT
  * Author URI: https://gradeit.co.za
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 // Define plugin constants
 define('WEE_PLUGIN_URL', plugins_url('/', __FILE__));
 define('WEE_PLUGIN_PATH', plugin_dir_path(__FILE__));
-define('WEE_PLUGIN_VERSION', '1.0.1');
+define('WEE_PLUGIN_VERSION', '1.0.19');
 
 // Include required files
 require_once WEE_PLUGIN_PATH . 'includes/class-wee-plugin.php';
@@ -29,9 +29,27 @@ require_once WEE_PLUGIN_PATH . 'includes/class-wee-templates.php';
 
 // Initialize the plugin
 function wee_init() {
+    // Check if WooCommerce is active
+    if (!class_exists('WooCommerce')) {
+        add_action('admin_notices', 'wee_woocommerce_missing_notice');
+        return;
+    }
+    
     new WEE_Plugin();
 }
 add_action('plugins_loaded', 'wee_init');
+
+// Show notice if WooCommerce is not active
+function wee_woocommerce_missing_notice() {
+    ?>
+    <div class="notice notice-error">
+        <p>
+            <strong><?php _e('WordPress Excel Export', 'wordpress-excel-export'); ?></strong> 
+            <?php _e('requires WooCommerce to be installed and active.', 'wordpress-excel-export'); ?>
+        </p>
+    </div>
+    <?php
+}
 
 // Periodic database optimization check
 add_action('wp_loaded', array('WEE_Plugin', 'maybe_optimize_database'));

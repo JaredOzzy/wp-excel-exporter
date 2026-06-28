@@ -5,6 +5,12 @@
 class WEE_Plugin {
     
     public function __construct() {
+        // Initialize templates class
+        WEE_Templates::init();
+
+        // Auto-create the six grading templates if they don't exist yet
+        $this->ensure_grading_templates();
+
         $this->init_hooks();
     }
     
@@ -24,9 +30,11 @@ class WEE_Plugin {
         add_action('wp_ajax_wee_edit_template', array($this, 'ajax_edit_template'));
         add_action('wp_ajax_wee_get_template', array($this, 'ajax_get_template'));
         add_action('wp_ajax_wee_delete_template', array($this, 'ajax_delete_template'));
+        add_action('wp_ajax_wee_duplicate_template', array($this, 'ajax_duplicate_template'));
         add_action('wp_ajax_wee_export_data', array($this, 'ajax_export_data'));
         add_action('wp_ajax_wee_get_products', array($this, 'ajax_get_products'));
         add_action('wp_ajax_wee_search_products', array($this, 'ajax_search_products'));
+
     }
     
     /**
@@ -60,8 +68,9 @@ class WEE_Plugin {
             'wee-templates',
             array($this, 'templates_page')
         );
+
     }
-    
+
     /**
      * Enqueue admin scripts and styles
      */
@@ -69,7 +78,7 @@ class WEE_Plugin {
         // Debug the current hook
         error_log('WEE Current Hook: ' . $hook);
         error_log('WEE Plugin URL: ' . WEE_PLUGIN_URL);
-        
+
         // Check if we're on our plugin pages
         if (strpos($hook, 'wordpress-excel-export') === false && strpos($hook, 'wee-templates') === false) {
             error_log('WEE Not on plugin page, hook: ' . $hook);
@@ -124,7 +133,7 @@ class WEE_Plugin {
     public function templates_page() {
         include WEE_PLUGIN_PATH . 'templates/templates-page.php';
     }
-    
+
     /**
      * AJAX: Save template
      */
@@ -148,6 +157,8 @@ class WEE_Plugin {
                 }
             }
         }
+        
+
         $result = WEE_Templates::save_template($template_name, $columns, $custom_fields);
         wp_send_json_success($result);
     }
@@ -164,6 +175,22 @@ class WEE_Plugin {
         
         $template_id = intval($_POST['template_id']);
         $result = WEE_Templates::delete_template($template_id);
+        
+        wp_send_json_success($result);
+    }
+    
+    /**
+     * AJAX: Duplicate template
+     */
+    public function ajax_duplicate_template() {
+        check_ajax_referer('wee_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have permission to perform this action.', 'wordpress-excel-export'));
+        }
+        
+        $template_id = intval($_POST['template_id']);
+        $result = WEE_Templates::duplicate_template($template_id);
         
         wp_send_json_success($result);
     }
@@ -334,6 +361,8 @@ class WEE_Plugin {
         wp_send_json_success($products);
     }
 
+
+    
     /**
      * AJAX: Get template
      */
@@ -346,6 +375,8 @@ class WEE_Plugin {
         
         $template_id = intval($_POST['template_id']);
         $template = WEE_Templates::get_template($template_id);
+        
+        error_log('WEE: Template retrieved for AJAX: ' . print_r($template, true));
         
         if ($template) {
             wp_send_json_success($template);
@@ -368,7 +399,19 @@ class WEE_Plugin {
         
         $template_name = sanitize_text_field($_POST['template_name']);
         $template_description = sanitize_text_field($_POST['template_description']);
-        $columns = array_map('sanitize_text_field', $_POST['columns'] ?? array());
+        
+        // Handle columns - decode JSON if it's a string
+        $columns = array();
+        if (!empty($_POST['columns'])) {
+            if (is_string($_POST['columns'])) {
+                $columns_data = json_decode(stripslashes($_POST['columns']), true);
+                if (is_array($columns_data)) {
+                    $columns = array_map('sanitize_text_field', $columns_data);
+                }
+            } elseif (is_array($_POST['columns'])) {
+                $columns = array_map('sanitize_text_field', $_POST['columns']);
+            }
+        }
         
         // Handle column ordering
         if (!empty($_POST['column_order'])) {
@@ -393,14 +436,40 @@ class WEE_Plugin {
         
         // Handle custom column names
         $column_names = array();
-        if (!empty($_POST['column_names']) && is_array($_POST['column_names'])) {
-            foreach ($_POST['column_names'] as $column_key => $custom_name) {
-                $column_names[sanitize_text_field($column_key)] = sanitize_text_field($custom_name);
+        if (!empty($_POST['column_names'])) {
+            if (is_string($_POST['column_names'])) {
+                $column_names_data = json_decode(stripslashes($_POST['column_names']), true);
+                if (is_array($column_names_data)) {
+                    foreach ($column_names_data as $column_key => $custom_name) {
+                        $column_names[sanitize_text_field($column_key)] = sanitize_text_field($custom_name);
+                    }
+                }
+            } elseif (is_array($_POST['column_names'])) {
+                foreach ($_POST['column_names'] as $column_key => $custom_name) {
+                    $column_names[sanitize_text_field($column_key)] = sanitize_text_field($custom_name);
+                }
             }
         }
         
         $custom_fields = array();
         $filters = array();
+        $field_groups = array();
+        $combined_fields = array();
+        
+        // Handle field groups
+        if (!empty($_POST['field_groups'])) {
+            $field_groups_data = json_decode(sanitize_text_field($_POST['field_groups']), true);
+            if (is_array($field_groups_data)) {
+                foreach ($field_groups_data as $group) {
+                    if (!empty($group['name']) && !empty($group['fields'])) {
+                        $field_groups[] = array(
+                            'name' => sanitize_text_field($group['name']),
+                            'fields' => array_map('sanitize_text_field', $group['fields'])
+                        );
+                    }
+                }
+            }
+        }
         
         if (!empty($_POST['custom_fields']) && is_array($_POST['custom_fields'])) {
             foreach ($_POST['custom_fields'] as $meta_key => $field) {
@@ -413,12 +482,90 @@ class WEE_Plugin {
             }
         }
         
-        // Handle template filters
-        if (!empty($_POST['template_filters']) && is_array($_POST['template_filters'])) {
-            $template_filters = $_POST['template_filters'];
+        // Handle combined fields - use the safe pattern from the checklist
+        $raw_combined = isset($_POST['combined_fields']) ? wp_unslash($_POST['combined_fields']) : '';
+        error_log('WEE DEBUG: Raw combined_fields POST data in ajax_edit_template: ' . $raw_combined);
+        
+        $combined_fields = array();
+        if (!empty($raw_combined)) {
+            // Accept both JSON string and array (defensive)
+            if (is_string($raw_combined) && $raw_combined !== '') {
+                $decoded = json_decode($raw_combined, true);
+            } elseif (is_array($raw_combined)) {
+                $decoded = $raw_combined;
+            } else {
+                $decoded = array();
+            }
             
+            error_log('WEE DEBUG: Decoded combined_fields data in ajax_edit_template: ' . print_r($decoded, true));
+            
+            // Validate/sanitize STRUCTURE, not the JSON string itself
+            if (is_array($decoded)) {
+                foreach ($decoded as $item) {
+                    // expected shape: { id, name, fields[], separator, visible }
+                    $id = isset($item['id']) ? sanitize_text_field($item['id']) : '';
+                    $name = isset($item['name']) ? sanitize_text_field($item['name']) : '';
+                    $fields_in = isset($item['fields']) ? (array) $item['fields'] : array();
+                    
+                    // Sanitize fields array - each field is an object with key, name, value
+                    $fields = array();
+                    foreach ($fields_in as $field) {
+                        if (is_array($field)) {
+                            $fields[] = array(
+                                'key' => isset($field['key']) ? sanitize_text_field($field['key']) : '',
+                                'name' => isset($field['name']) ? sanitize_text_field($field['name']) : '',
+                                'value' => isset($field['value']) ? sanitize_text_field($field['value']) : (isset($field['key']) ? sanitize_text_field($field['key']) : '')
+                            );
+                        }
+                    }
+                    
+                    $separator = isset($item['separator']) ? sanitize_text_field($item['separator']) : ' ';
+                    $visible = isset($item['visible']) ? (bool) $item['visible'] : true;
+                    
+                    if ($name && !empty($fields)) {
+                        $combined_fields[] = array(
+                            'id' => $id,
+                            'name' => $name,
+                            'fields' => $fields,
+                            'separator' => $separator,
+                            'visible' => $visible
+                        );
+                    }
+                }
+            }
+                error_log('WEE DEBUG: Final combined_fields array in ajax_edit_template: ' . print_r($combined_fields, true));
+        }
+        
+        // Handle column visibility
+        $column_visibility = array();
+        if (!empty($_POST['column_visibility'])) {
+            // Don't sanitize JSON data as it can corrupt the structure
+            $column_visibility_data = json_decode($_POST['column_visibility'], true);
+            if (is_array($column_visibility_data)) {
+                $column_visibility = $column_visibility_data;
+            }
+        }
+        
+        // Handle template filters
+        $filters = array();
+        $template_filters = array();
+        if (!empty($_POST['template_filters'])) {
+            if (is_string($_POST['template_filters'])) {
+                $template_filters = json_decode(stripslashes($_POST['template_filters']), true);
+                if (!is_array($template_filters)) {
+                    $template_filters = array();
+                }
+            } elseif (is_array($_POST['template_filters'])) {
+                $template_filters = $_POST['template_filters'];
+            }
+        }
+        
+        error_log('WEE DEBUG: Template filters received in ajax_add_template: ' . print_r($template_filters, true));
+        
+        if (!empty($template_filters) && is_array($template_filters)) {
             if (!empty($template_filters['product_search'])) {
-                $filters['product_search'] = sanitize_text_field($template_filters['product_search']);
+                // Product search can be a JSON array of IDs, don't sanitize it as text
+                $filters['product_search'] = $template_filters['product_search'];
             }
             
             if (!empty($template_filters['product_categories']) && is_array($template_filters['product_categories'])) {
@@ -452,9 +599,27 @@ class WEE_Plugin {
                     $filters['custom_meta_operator'] = sanitize_text_field($template_filters['custom_meta_operator']);
                 }
             }
+
+            if (!empty($template_filters['tgf_submission_key'])) {
+                $filters['tgf_submission_key'] = sanitize_text_field($template_filters['tgf_submission_key']);
+            }
+
+            if (!empty($template_filters['tgf_grading_contains'])) {
+                $filters['tgf_grading_contains'] = sanitize_text_field($template_filters['tgf_grading_contains']);
+            }
+
+            if (!empty($template_filters['tgf_service_level_contains'])) {
+                $filters['tgf_service_level_contains'] = sanitize_text_field($template_filters['tgf_service_level_contains']);
+            }
         }
+
+        // Debug logging
+        error_log('WEE: Template save attempt - Name: ' . $template_name . ', Columns: ' . print_r($columns, true));
+        error_log('WEE DEBUG: Filters being passed to save_template: ' . print_r($filters, true));
         
-        $result = WEE_Templates::save_template($template_name, $columns, $custom_fields, $filters, $column_names);
+        $result = WEE_Templates::save_template($template_name, $columns, $custom_fields, $filters, $column_names, $field_groups, $combined_fields, $column_visibility);
+        
+        error_log('WEE: Template save result: ' . print_r($result, true));
         
         if ($result['success']) {
             wp_send_json_success($result);
@@ -476,20 +641,61 @@ class WEE_Plugin {
         $template_id = intval($_POST['template_id']);
         $template_name = sanitize_text_field($_POST['template_name']);
         $template_description = sanitize_text_field($_POST['template_description']);
-        $columns = array_map('sanitize_text_field', $_POST['columns'] ?? array());
         
-        // Handle column ordering
+        // Handle columns - decode JSON if it's a string
+        $columns = array();
+        error_log('WEE DEBUG SERVER: Checking for columns in $_POST...');
+        error_log('WEE DEBUG SERVER: isset($_POST[columns]): ' . (isset($_POST['columns']) ? 'YES' : 'NO'));
+        error_log('WEE DEBUG SERVER: empty($_POST[columns]): ' . (empty($_POST['columns']) ? 'YES' : 'NO'));
+        
+        if (!empty($_POST['columns'])) {
+            error_log('WEE DEBUG SERVER: Raw columns data: ' . print_r($_POST['columns'], true));
+            error_log('WEE DEBUG SERVER: Type: ' . gettype($_POST['columns']));
+            if (is_string($_POST['columns'])) {
+                error_log('WEE DEBUG SERVER: Decoding JSON string...');
+                // Use stripslashes to remove WordPress-added slashes before decoding
+                $clean_json = stripslashes($_POST['columns']);
+                error_log('WEE DEBUG SERVER: After stripslashes: ' . $clean_json);
+                $columns_data = json_decode($clean_json, true);
+                error_log('WEE DEBUG SERVER: Decoded columns data: ' . print_r($columns_data, true));
+                if (is_array($columns_data)) {
+                    $columns = array_map('sanitize_text_field', $columns_data);
+                    error_log('WEE DEBUG SERVER: Sanitized columns: ' . print_r($columns, true));
+                } else {
+                    error_log('WEE DEBUG SERVER: ERROR - columns_data is not an array after decode. JSON error: ' . json_last_error_msg());
+                }
+            } elseif (is_array($_POST['columns'])) {
+                error_log('WEE DEBUG SERVER: columns is already an array');
+                $columns = array_map('sanitize_text_field', $_POST['columns']);
+            } else {
+                error_log('WEE DEBUG SERVER: ERROR - columns is neither string nor array: ' . gettype($_POST['columns']));
+            }
+        } else {
+            error_log('WEE DEBUG SERVER: ERROR - columns is empty or not set in POST data!');
+            error_log('WEE DEBUG SERVER: All POST keys: ' . print_r(array_keys($_POST), true));
+        }
+        error_log('WEE DEBUG SERVER: Final columns array for saving: ' . print_r($columns, true));
+        error_log('WEE DEBUG SERVER: Final columns count: ' . count($columns));
+        
+        // Handle column ordering - keep the full order including combined field IDs
+        $column_order = array();
         if (!empty($_POST['column_order'])) {
-            $column_order = json_decode(sanitize_text_field($_POST['column_order']), true);
-            if (is_array($column_order)) {
-                // Reorder columns according to the specified order
+            // Use stripslashes before json_decode
+            $column_order_data = json_decode(stripslashes($_POST['column_order']), true);
+            if (is_array($column_order_data)) {
+                // Save the complete order (includes both regular columns and combined field IDs)
+                $column_order = array_map('sanitize_text_field', $column_order_data);
+                
+                // Also reorder the regular columns array for backwards compatibility
                 $ordered_columns = array();
-                foreach ($column_order as $column_key) {
+                foreach ($column_order_data as $column_key) {
+                    $column_key = sanitize_text_field($column_key);
+                    // Only add if it's a regular column (not a combined field ID)
                     if (in_array($column_key, $columns)) {
                         $ordered_columns[] = $column_key;
                     }
                 }
-                // Add any remaining columns that weren't in the order (shouldn't happen normally)
+                // Add any remaining columns that weren't in the order
                 foreach ($columns as $column) {
                     if (!in_array($column, $ordered_columns)) {
                         $ordered_columns[] = $column;
@@ -501,14 +707,40 @@ class WEE_Plugin {
         
         // Handle custom column names
         $column_names = array();
-        if (!empty($_POST['column_names']) && is_array($_POST['column_names'])) {
-            foreach ($_POST['column_names'] as $column_key => $custom_name) {
-                $column_names[sanitize_text_field($column_key)] = sanitize_text_field($custom_name);
+        if (!empty($_POST['column_names'])) {
+            if (is_string($_POST['column_names'])) {
+                $column_names_data = json_decode(stripslashes($_POST['column_names']), true);
+                if (is_array($column_names_data)) {
+                    foreach ($column_names_data as $column_key => $custom_name) {
+                        $column_names[sanitize_text_field($column_key)] = sanitize_text_field($custom_name);
+                    }
+                }
+            } elseif (is_array($_POST['column_names'])) {
+                foreach ($_POST['column_names'] as $column_key => $custom_name) {
+                    $column_names[sanitize_text_field($column_key)] = sanitize_text_field($custom_name);
+                }
             }
         }
         
         $custom_fields = array();
         $filters = array();
+        $field_groups = array();
+        $combined_fields = array();
+        
+        // Handle field groups
+        if (!empty($_POST['field_groups'])) {
+            $field_groups_data = json_decode(sanitize_text_field($_POST['field_groups']), true);
+            if (is_array($field_groups_data)) {
+                foreach ($field_groups_data as $group) {
+                    if (!empty($group['name']) && !empty($group['fields'])) {
+                        $field_groups[] = array(
+                            'name' => sanitize_text_field($group['name']),
+                            'fields' => array_map('sanitize_text_field', $group['fields'])
+                        );
+                    }
+                }
+            }
+        }
         
         if (!empty($_POST['custom_fields']) && is_array($_POST['custom_fields'])) {
             foreach ($_POST['custom_fields'] as $meta_key => $field) {
@@ -521,12 +753,99 @@ class WEE_Plugin {
             }
         }
         
+        // Handle combined fields - use the safe pattern from the checklist
+        $raw_combined = isset($_POST['combined_fields']) ? wp_unslash($_POST['combined_fields']) : '';
+        error_log('WEE DEBUG: Raw combined_fields POST data in ajax_edit_template: ' . $raw_combined);
+        
+        $combined_fields = array();
+        if (!empty($raw_combined)) {
+            // Accept both JSON string and array (defensive)
+            if (is_string($raw_combined) && $raw_combined !== '') {
+                $decoded = json_decode($raw_combined, true);
+            } elseif (is_array($raw_combined)) {
+                $decoded = $raw_combined;
+            } else {
+                $decoded = array();
+            }
+            
+            error_log('WEE DEBUG: Decoded combined_fields data in ajax_edit_template: ' . print_r($decoded, true));
+            
+            // Validate/sanitize STRUCTURE, not the JSON string itself
+            if (is_array($decoded)) {
+                foreach ($decoded as $item) {
+                    // expected shape: { id, name, fields[], separator, visible }
+                    $id = isset($item['id']) ? sanitize_text_field($item['id']) : '';
+                    $name = isset($item['name']) ? sanitize_text_field($item['name']) : '';
+                    $fields_in = isset($item['fields']) ? (array) $item['fields'] : array();
+                    
+                    // Sanitize fields array - each field is an object with key, name, value
+                    $fields = array();
+                    foreach ($fields_in as $field) {
+                        if (is_array($field)) {
+                            $fields[] = array(
+                                'key' => isset($field['key']) ? sanitize_text_field($field['key']) : '',
+                                'name' => isset($field['name']) ? sanitize_text_field($field['name']) : '',
+                                'value' => isset($field['value']) ? sanitize_text_field($field['value']) : (isset($field['key']) ? sanitize_text_field($field['key']) : '')
+                            );
+                        }
+                    }
+                    
+                    $separator = isset($item['separator']) ? sanitize_text_field($item['separator']) : ' ';
+                    $visible = isset($item['visible']) ? (bool) $item['visible'] : true;
+                    
+                    if ($name && !empty($fields)) {
+                        $combined_fields[] = array(
+                            'id' => $id,
+                            'name' => $name,
+                            'fields' => $fields,
+                            'separator' => $separator,
+                            'visible' => $visible
+                        );
+                    }
+                }
+            }
+                error_log('WEE DEBUG: Final combined_fields array in ajax_edit_template: ' . print_r($combined_fields, true));
+        }
+        
+        // Handle column visibility
+        $column_visibility = array();
+        if (!empty($_POST['column_visibility'])) {
+            // Use stripslashes before json_decode
+            $column_visibility_data = json_decode(stripslashes($_POST['column_visibility']), true);
+            if (is_array($column_visibility_data)) {
+                $column_visibility = $column_visibility_data;
+            }
+        }
+        
         // Handle template filters (same logic as add template)
-        if (!empty($_POST['template_filters']) && is_array($_POST['template_filters'])) {
-            $template_filters = $_POST['template_filters'];
+        $template_filters = array();
+        if (!empty($_POST['template_filters'])) {
+            if (is_string($_POST['template_filters'])) {
+                // Use stripslashes before json_decode
+                $template_filters = json_decode(stripslashes($_POST['template_filters']), true);
+                if (!is_array($template_filters)) {
+                    $template_filters = array();
+                }
+            } elseif (is_array($_POST['template_filters'])) {
+                $template_filters = $_POST['template_filters'];
+            }
+        }
+        
+        error_log('WEE DEBUG SERVER: Template filters received in ajax_edit_template: ' . print_r($template_filters, true));
+        error_log('WEE DEBUG SERVER: ========================================');
+        error_log('WEE DEBUG SERVER: ABOUT TO CALL update_template() WITH:');
+        error_log('WEE DEBUG SERVER: - template_id: ' . $template_id);
+        error_log('WEE DEBUG SERVER: - template_name: ' . $template_name);
+        error_log('WEE DEBUG SERVER: - columns count: ' . count($columns));
+        error_log('WEE DEBUG SERVER: - columns array: ' . print_r($columns, true));
+        error_log('WEE DEBUG SERVER: - filters: ' . print_r($filters, true));
+        error_log('WEE DEBUG SERVER: ========================================');
+        
+        if (!empty($template_filters)) {
             
             if (!empty($template_filters['product_search'])) {
-                $filters['product_search'] = sanitize_text_field($template_filters['product_search']);
+                // Product search can be a JSON array of IDs, don't sanitize it as text
+                $filters['product_search'] = $template_filters['product_search'];
             }
             
             if (!empty($template_filters['product_categories']) && is_array($template_filters['product_categories'])) {
@@ -551,30 +870,135 @@ class WEE_Plugin {
             
             if (!empty($template_filters['custom_meta_key'])) {
                 $filters['custom_meta_key'] = sanitize_text_field($template_filters['custom_meta_key']);
-                
+
                 if (!empty($template_filters['custom_meta_value'])) {
                     $filters['custom_meta_value'] = sanitize_text_field($template_filters['custom_meta_value']);
                 }
-                
+
                 if (!empty($template_filters['custom_meta_operator'])) {
                     $filters['custom_meta_operator'] = sanitize_text_field($template_filters['custom_meta_operator']);
                 }
             }
+
+            if (!empty($template_filters['tgf_submission_key'])) {
+                $filters['tgf_submission_key'] = sanitize_text_field($template_filters['tgf_submission_key']);
+            }
+
+            if (!empty($template_filters['tgf_grading_contains'])) {
+                $filters['tgf_grading_contains'] = sanitize_text_field($template_filters['tgf_grading_contains']);
+            }
+
+            if (!empty($template_filters['tgf_service_level_contains'])) {
+                $filters['tgf_service_level_contains'] = sanitize_text_field($template_filters['tgf_service_level_contains']);
+            }
         }
+
+        error_log('WEE DEBUG: Filters being passed to update_template: ' . print_r($filters, true));
+        error_log('WEE DEBUG: Combined fields being passed to update_template: ' . print_r($combined_fields, true));
+        error_log('WEE DEBUG: Columns being passed to update_template: ' . print_r($columns, true));
+        error_log('WEE DEBUG: Column order being passed to update_template: ' . print_r($column_order, true));
+        error_log('WEE DEBUG: Template ID: ' . $template_id);
+        error_log('WEE DEBUG: Template name: ' . $template_name);
         
-        $result = WEE_Templates::update_template($template_id, $template_name, $columns, $custom_fields, $filters, $column_names);
+        $result = WEE_Templates::update_template($template_id, $template_name, $columns, $custom_fields, $filters, $column_names, $field_groups, $combined_fields, $template_description, $column_visibility, $column_order);
+        
+        error_log('WEE DEBUG: Update result: ' . print_r($result, true));
         
         if ($result['success']) {
             wp_send_json_success($result);
         } else {
+            error_log('WEE ERROR: Update failed with message: ' . (isset($result['message']) ? $result['message'] : 'No message'));
             wp_send_json_error($result);
+        }
+    }
+
+    /**
+     * Auto-create the six grading templates if they don't already exist.
+     * Template IDs are cached in WP options so creation only happens once.
+     */
+    public function ensure_grading_templates() {
+        $default_columns = array(
+            'tgf_line_number',
+            'customer_name',
+            'order_edit_link',
+            'tgf_service_level',
+            'tgf_extras',
+            'tgf_extras_card_type',
+            'tgf_extras_card_extras',
+            'tgf_extras_signatures',
+            'tgf_extras_comic_extras',
+            'tgf_extras_bgs_subgrades',
+            'tgf_extras_tag_score',
+            'tgf_item_name',
+            'tgf_item_set',
+            'tgf_item_year',
+            'tgf_item_number',
+            'tgf_item_description',
+            'shipping_address',
+            'order_customer_note',
+        );
+
+        $grading_templates = array(
+            'CGC Cards'  => 'cgc_service_level',
+            'CGC Comics' => 'cgc_comic_service',
+            'PSA Cards'  => 'psa_service_level',
+            'BGS Cards'  => 'bgs_service_level',
+            'AGS Cards'  => 'ags_service_level',
+            'TAG Cards'  => 'tag_service_level',
+        );
+
+        foreach ($grading_templates as $name => $submission_key) {
+            $option_key  = 'wee_grading_tpl_' . sanitize_key($name);
+            $template_id = get_option($option_key, 0);
+
+            if ($template_id) {
+                $tpl = WEE_Templates::get_template($template_id);
+                if ($tpl) {
+                    // Migrate: append any new default columns not yet in this template
+                    $existing_columns = is_array($tpl['columns']) ? $tpl['columns'] : array();
+                    $missing_columns  = array_diff($default_columns, $existing_columns);
+
+                    if (!empty($missing_columns)) {
+                        WEE_Templates::update_template(
+                            $template_id,
+                            $tpl['name'],
+                            array_merge($existing_columns, array_values($missing_columns)),
+                            isset($tpl['custom_fields']) && is_array($tpl['custom_fields']) ? $tpl['custom_fields'] : array(),
+                            isset($tpl['filters'])      && is_array($tpl['filters'])      ? $tpl['filters']      : array(),
+                            isset($tpl['column_names']) && is_array($tpl['column_names']) ? $tpl['column_names'] : array(),
+                            isset($tpl['field_groups']) && is_array($tpl['field_groups']) ? $tpl['field_groups'] : array(),
+                            isset($tpl['combined_fields']) && is_array($tpl['combined_fields']) ? $tpl['combined_fields'] : array(),
+                            isset($tpl['description']) ? $tpl['description'] : '',
+                            isset($tpl['column_visibility']) && is_array($tpl['column_visibility']) ? $tpl['column_visibility'] : array(),
+                            isset($tpl['column_order'])      && is_array($tpl['column_order'])      ? $tpl['column_order']      : array()
+                        );
+                    }
+                    continue;
+                }
+                delete_option($option_key);
+            }
+
+            $result = WEE_Templates::save_template(
+                $name,
+                $default_columns,
+                array(),  // custom_fields
+                array('tgf_submission_key' => $submission_key),
+                array(),  // column_names
+                array(),  // field_groups
+                array(),  // combined_fields
+                array()   // column_visibility
+            );
+
+            if (!empty($result['success']) && !empty($result['template_id'])) {
+                update_option($option_key, $result['template_id']);
+            }
         }
     }
 
     public static function activate() {
         // Create database tables
         WEE_Templates::create_tables();
-        
+
         // Optimize database indexes for better performance
         self::optimize_database_indexes();
     }
@@ -737,4 +1161,5 @@ class WEE_Plugin {
             }
         }
     }
+    
 } 

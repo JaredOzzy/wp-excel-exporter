@@ -20,11 +20,19 @@ class WEE_Templates {
         $table_name = $wpdb->prefix . 'wee_templates';
         $charset_collate = $wpdb->get_charset_collate();
         
+        error_log('WEE DEBUG: Creating/updating table: ' . $table_name);
+        
         $sql = "CREATE TABLE $table_name (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             name varchar(255) NOT NULL,
+            description text NULL,
             columns longtext NOT NULL,
             custom_fields longtext NULL,
+            filters longtext NULL,
+            column_names longtext NULL,
+            field_groups longtext NULL,
+            combined_fields longtext NULL,
+            column_visibility longtext NULL,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id)
@@ -32,13 +40,49 @@ class WEE_Templates {
         
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
+        
+        // Diagnostic: Check if combined_fields column exists
+        self::diagnose_database_structure();
+    }
+    
+    /**
+     * Diagnostic function to check database structure
+     */
+    private static function diagnose_database_structure() {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'wee_templates';
+        
+        // Check if table exists
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'");
+        error_log('WEE DEBUG: Table exists: ' . ($table_exists ? 'YES' : 'NO'));
+        
+        if ($table_exists) {
+            // Get all columns
+            $columns = $wpdb->get_col("DESC $table_name");
+            error_log('WEE DEBUG: Table columns: ' . print_r($columns, true));
+            
+            // Check specifically for combined_fields
+            $has_combined_fields = in_array('combined_fields', $columns);
+            error_log('WEE DEBUG: Has combined_fields column: ' . ($has_combined_fields ? 'YES' : 'NO'));
+            
+            // If missing, try to add it
+            if (!$has_combined_fields) {
+                error_log('WEE DEBUG: Adding missing combined_fields column...');
+                $result = $wpdb->query("ALTER TABLE $table_name ADD combined_fields LONGTEXT NULL");
+                error_log('WEE DEBUG: Add column result: ' . $result);
+                error_log('WEE DEBUG: Last error: ' . $wpdb->last_error);
+            }
+        }
     }
     
     /**
      * Save template
      */
-    public static function save_template($name, $columns, $custom_fields = array(), $filters = array(), $column_names = array()) {
+    public static function save_template($name, $columns, $custom_fields = array(), $filters = array(), $column_names = array(), $field_groups = array(), $combined_fields = array(), $column_visibility = array()) {
         global $wpdb;
+        
+        error_log('WEE DEBUG: save_template called with combined_fields: ' . print_r($combined_fields, true));
         
         self::init();
         
@@ -47,8 +91,14 @@ class WEE_Templates {
             'columns' => json_encode($columns),
             'custom_fields' => json_encode($custom_fields),
             'filters' => json_encode($filters),
-            'column_names' => json_encode($column_names)
+            'column_names' => json_encode($column_names),
+            'field_groups' => json_encode($field_groups),
+            'combined_fields' => json_encode($combined_fields),
+            'column_visibility' => json_encode($column_visibility)
         );
+        
+        error_log('WEE DEBUG: Data being saved to database: ' . print_r($data, true));
+        error_log('WEE DEBUG: Combined fields JSON: ' . $data['combined_fields']);
         
         // Add custom_fields column if not exists
         $table_fields = $wpdb->get_col("DESC " . self::$table_name, 0);
@@ -66,7 +116,30 @@ class WEE_Templates {
             $wpdb->query("ALTER TABLE " . self::$table_name . " ADD column_names LONGTEXT NULL");
         }
         
+        // Add field_groups column if not exists
+        if (!in_array('field_groups', $table_fields)) {
+            $wpdb->query("ALTER TABLE " . self::$table_name . " ADD field_groups LONGTEXT NULL");
+        }
+        
+        // Add combined_fields column if not exists
+        error_log('WEE DEBUG: Checking if combined_fields column exists. Table fields: ' . print_r($table_fields, true));
+        if (!in_array('combined_fields', $table_fields)) {
+            error_log('WEE DEBUG: combined_fields column does not exist, adding it...');
+            $wpdb->query("ALTER TABLE " . self::$table_name . " ADD combined_fields LONGTEXT NULL");
+        } else {
+            error_log('WEE DEBUG: combined_fields column already exists');
+        }
+        
+        // Add column_visibility column if not exists
+        if (!in_array('column_visibility', $table_fields)) {
+            $wpdb->query("ALTER TABLE " . self::$table_name . " ADD column_visibility LONGTEXT NULL");
+        }
+        
+        error_log('WEE DEBUG: About to insert data into database. Table: ' . self::$table_name);
+        error_log('WEE DEBUG: Insert data: ' . print_r($data, true));
         $result = $wpdb->insert(self::$table_name, $data);
+        error_log('WEE DEBUG: Database insert result: ' . print_r($result, true));
+        error_log('WEE DEBUG: Last error: ' . $wpdb->last_error);
         
         if ($result === false) {
             return array(
@@ -97,9 +170,40 @@ class WEE_Templates {
         
         foreach ($templates as &$template) {
             $template['columns'] = json_decode($template['columns'], true);
+            if (!is_array($template['columns'])) {
+                $template['columns'] = array();
+            }
+            
             $template['custom_fields'] = isset($template['custom_fields']) ? json_decode($template['custom_fields'], true) : array();
+            if (!is_array($template['custom_fields'])) {
+                $template['custom_fields'] = array();
+            }
+            
             $template['filters'] = isset($template['filters']) ? json_decode($template['filters'], true) : array();
+            if (!is_array($template['filters'])) {
+                $template['filters'] = array();
+            }
+            
             $template['column_names'] = isset($template['column_names']) ? json_decode($template['column_names'], true) : array();
+            if (!is_array($template['column_names'])) {
+                $template['column_names'] = array();
+            }
+            
+            $template['field_groups'] = isset($template['field_groups']) ? json_decode($template['field_groups'], true) : array();
+            if (!is_array($template['field_groups'])) {
+                $template['field_groups'] = array();
+            }
+            
+            $template['combined_fields'] = isset($template['combined_fields']) ? json_decode($template['combined_fields'], true) : array();
+            if (!is_array($template['combined_fields'])) {
+                $template['combined_fields'] = array();
+            }
+            
+            $template['column_visibility'] = isset($template['column_visibility']) ? json_decode($template['column_visibility'], true) : array();
+            if (!is_array($template['column_visibility'])) {
+                $template['column_visibility'] = array();
+            }
+
         }
         
         return $templates;
@@ -122,69 +226,52 @@ class WEE_Templates {
         );
         
         if ($template) {
+            error_log('WEE DEBUG: Raw template from database: ' . print_r($template, true));
+            
             $template['columns'] = json_decode($template['columns'], true);
+            if (!is_array($template['columns'])) {
+                $template['columns'] = array();
+            }
+            
             $template['custom_fields'] = isset($template['custom_fields']) ? json_decode($template['custom_fields'], true) : array();
+            if (!is_array($template['custom_fields'])) {
+                $template['custom_fields'] = array();
+            }
+            
+            error_log('WEE DEBUG: Raw filters JSON: ' . $template['filters']);
             $template['filters'] = isset($template['filters']) ? json_decode($template['filters'], true) : array();
+            if (!is_array($template['filters'])) {
+                $template['filters'] = array();
+            }
+            error_log('WEE DEBUG: Decoded filters: ' . print_r($template['filters'], true));
+            
             $template['column_names'] = isset($template['column_names']) ? json_decode($template['column_names'], true) : array();
+            if (!is_array($template['column_names'])) {
+                $template['column_names'] = array();
+            }
+            
+            $template['field_groups'] = isset($template['field_groups']) ? json_decode($template['field_groups'], true) : array();
+            if (!is_array($template['field_groups'])) {
+                $template['field_groups'] = array();
+            }
+            
+            error_log('WEE DEBUG: Raw combined_fields JSON from DB: ' . (isset($template['combined_fields']) ? $template['combined_fields'] : 'NOT SET'));
+            $template['combined_fields'] = isset($template['combined_fields']) ? json_decode($template['combined_fields'], true) : array();
+            if (!is_array($template['combined_fields'])) {
+                $template['combined_fields'] = array();
+            }
+            error_log('WEE DEBUG: Decoded combined_fields from DB: ' . print_r($template['combined_fields'], true));
+            
+            $template['column_visibility'] = isset($template['column_visibility']) ? json_decode($template['column_visibility'], true) : array();
+            if (!is_array($template['column_visibility'])) {
+                $template['column_visibility'] = array();
+            }
+            
         }
         
         return $template;
     }
     
-    /**
-     * Update template
-     */
-    public static function update_template($id, $name, $columns, $custom_fields = array(), $filters = array(), $column_names = array()) {
-        global $wpdb;
-        
-        self::init();
-        
-        // Ensure all columns exist before updating
-        $table_fields = $wpdb->get_col("DESC " . self::$table_name, 0);
-        
-        // Add custom_fields column if not exists
-        if (!in_array('custom_fields', $table_fields)) {
-            $wpdb->query("ALTER TABLE " . self::$table_name . " ADD custom_fields LONGTEXT NULL");
-        }
-        
-        // Add filters column if not exists
-        if (!in_array('filters', $table_fields)) {
-            $wpdb->query("ALTER TABLE " . self::$table_name . " ADD filters LONGTEXT NULL");
-        }
-        
-        // Add column_names column if not exists
-        if (!in_array('column_names', $table_fields)) {
-            $wpdb->query("ALTER TABLE " . self::$table_name . " ADD column_names LONGTEXT NULL");
-        }
-        
-        $data = array(
-            'name' => $name,
-            'columns' => json_encode($columns),
-            'custom_fields' => json_encode($custom_fields),
-            'filters' => json_encode($filters),
-            'column_names' => json_encode($column_names)
-        );
-        
-        $result = $wpdb->update(
-            self::$table_name,
-            $data,
-            array('id' => $id),
-            array('%s', '%s', '%s', '%s', '%s'),
-            array('%d')
-        );
-        
-        if ($result === false) {
-            return array(
-                'success' => false,
-                'message' => __('Failed to update template.', 'wordpress-excel-export')
-            );
-        }
-        
-        return array(
-            'success' => true,
-            'message' => __('Template updated successfully.', 'wordpress-excel-export')
-        );
-    }
     
     /**
      * Delete template
@@ -211,6 +298,82 @@ class WEE_Templates {
             'success' => true,
             'message' => __('Template deleted successfully.', 'wordpress-excel-export')
         );
+    }
+    
+    /**
+     * Duplicate template
+     */
+    public static function duplicate_template($id) {
+        global $wpdb;
+        
+        self::init();
+        
+        // Get the original template
+        $original_template = self::get_template($id);
+        
+        if (!$original_template) {
+            return array(
+                'success' => false,
+                'message' => __('Template not found.', 'wordpress-excel-export')
+            );
+        }
+        
+        // Create a new name for the duplicate
+        $original_name = $original_template['name'];
+        $duplicate_name = $original_name . ' (Copy)';
+        
+        // Check if the duplicate name already exists, if so, add a number
+        $counter = 1;
+        while (self::template_name_exists($duplicate_name)) {
+            $duplicate_name = $original_name . ' (Copy ' . $counter . ')';
+            $counter++;
+        }
+        
+        // Prepare the data for the new template
+        $data = array(
+            'name' => $duplicate_name,
+            'description' => isset($original_template['description']) ? $original_template['description'] : '',
+            'columns' => json_encode($original_template['columns']),
+            'custom_fields' => json_encode(isset($original_template['custom_fields']) ? $original_template['custom_fields'] : array()),
+            'filters' => json_encode(isset($original_template['filters']) ? $original_template['filters'] : array()),
+            'column_names' => json_encode(isset($original_template['column_names']) ? $original_template['column_names'] : array()),
+            'field_groups' => json_encode(isset($original_template['field_groups']) ? $original_template['field_groups'] : array()),
+            'combined_fields' => json_encode(isset($original_template['combined_fields']) ? $original_template['combined_fields'] : array()),
+            'column_visibility' => json_encode(isset($original_template['column_visibility']) ? $original_template['column_visibility'] : array()),
+        );
+        
+        // Insert the duplicate template
+        $result = $wpdb->insert(self::$table_name, $data);
+        
+        if ($result === false) {
+            return array(
+                'success' => false,
+                'message' => __('Failed to duplicate template.', 'wordpress-excel-export')
+            );
+        }
+        
+        return array(
+            'success' => true,
+            'message' => __('Template duplicated successfully.', 'wordpress-excel-export'),
+            'template_id' => $wpdb->insert_id,
+            'template_name' => $duplicate_name
+        );
+    }
+    
+    /**
+     * Check if a template name already exists
+     */
+    private static function template_name_exists($name) {
+        global $wpdb;
+        
+        self::init();
+        
+        $count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM " . self::$table_name . " WHERE name = %s",
+            $name
+        ));
+        
+        return $count > 0;
     }
     
     /**
@@ -442,6 +605,26 @@ class WEE_Templates {
                     'payment_method_settings' => __('Payment Method Settings', 'wordpress-excel-export'),
                     'payment_method_meta' => __('Payment Method Meta Data', 'wordpress-excel-export')
                 )
+            ),
+            'grading_information' => array(
+                'label' => __('Grading Information (TGF)', 'wordpress-excel-export'),
+                'columns' => array(
+                    'tgf_line_number'          => __('Line Number', 'wordpress-excel-export'),
+                    'tgf_service_level'        => __('Service Level', 'wordpress-excel-export'),
+                    'tgf_extras'               => __('Extras (combined)', 'wordpress-excel-export'),
+                    'tgf_extras_card_type'     => __('Card Type', 'wordpress-excel-export'),
+                    'tgf_extras_card_extras'   => __('Card Extras', 'wordpress-excel-export'),
+                    'tgf_extras_signatures'    => __('Signatures / Sketches', 'wordpress-excel-export'),
+                    'tgf_extras_comic_extras'  => __('Comic Extras', 'wordpress-excel-export'),
+                    'tgf_extras_bgs_subgrades' => __('BGS Sub-grades', 'wordpress-excel-export'),
+                    'tgf_extras_tag_score'     => __('TAG Score', 'wordpress-excel-export'),
+                    'tgf_item_name'            => __('Item Name', 'wordpress-excel-export'),
+                    'tgf_item_set'             => __('Item Set / Publisher', 'wordpress-excel-export'),
+                    'tgf_item_year'            => __('Year', 'wordpress-excel-export'),
+                    'tgf_item_number'          => __('Item Number', 'wordpress-excel-export'),
+                    'tgf_item_description'     => __('Description', 'wordpress-excel-export'),
+                    'tgf_collectable_type'     => __('Collectable Type', 'wordpress-excel-export'),
+                )
             )
         );
         
@@ -464,6 +647,8 @@ class WEE_Templates {
                 error_log('WEE DEBUG: No "Other" section created - other_columns is empty');
             }
         }
+        
+
         
         return $columns;
     }
@@ -575,6 +760,9 @@ class WEE_Templates {
             $select_clause = implode(', ', $select_fields);
             $yith_addons = $wpdb->get_results("SELECT {$select_clause} FROM {$yith_table} ORDER BY id", ARRAY_A);
             
+            error_log('WEE DEBUG: Found ' . count($yith_addons) . ' YWAPO addons in database');
+            error_log('WEE DEBUG: YWAPO addons: ' . print_r($yith_addons, true));
+            
             // Add ALL YITH addon fields directly to custom_columns at the beginning
             foreach ($yith_addons as $addon) {
                 $meta_key = 'ywapo-addon-' . $addon['id'];
@@ -636,6 +824,75 @@ class WEE_Templates {
         wp_cache_set($cache_key, $custom_columns, 'wee_templates', 300);
         
         return $custom_columns;
+    }
+    
+    /**
+     * Get available custom fields for grouping
+     * Returns a list of custom fields that can be grouped together
+     */
+    public static function get_groupable_custom_fields() {
+        $custom_columns = self::get_custom_meta_columns();
+        $groupable_fields = array();
+        
+        foreach ($custom_columns as $column_key => $column_label) {
+            $meta_key = str_replace('meta_', '', $column_key);
+            
+            // Skip WooCommerce internal fields
+            $wc_internal_fields = array(
+                '_shipping_phone', '_date_completed', '_transaction_id', '_date_paid',
+                '_customer_user_agent', '_customer_ip_address', '_cart_hash',
+                '_billing_first_name', '_billing_last_name', '_billing_company',
+                '_billing_address_1', '_billing_address_2', '_billing_city',
+                '_billing_state', '_billing_postcode', '_billing_country',
+                '_billing_email', '_billing_phone', '_shipping_first_name',
+                '_shipping_last_name', '_shipping_company', '_shipping_address_1',
+                '_shipping_address_2', '_shipping_city', '_shipping_state',
+                '_shipping_postcode', '_shipping_country', '_order_key',
+                '_customer_user', '_payment_method', '_payment_method_title',
+                '_order_shipping', '_order_shipping_tax', '_order_tax',
+                '_order_total', '_order_currency', '_created_via', '_order_version'
+            );
+            
+            if (!in_array($meta_key, $wc_internal_fields)) {
+                $groupable_fields[$column_key] = array(
+                    'meta_key' => $meta_key,
+                    'label' => $column_label,
+                    'type' => self::get_field_type($meta_key)
+                );
+            }
+        }
+        
+        return $groupable_fields;
+    }
+    
+    /**
+     * Determine the type of a custom field based on its meta key
+     */
+    private static function get_field_type($meta_key) {
+        // YWAPO fields
+        if (strpos($meta_key, 'ywapo-addon-') === 0) {
+            return 'ywapo';
+        }
+        
+        // Plugin-specific patterns
+        if (strpos($meta_key, 'plugin_') === 0) {
+            return 'plugin';
+        }
+        
+        // Generic patterns
+        if (strpos($meta_key, '_custom') !== false) {
+            return 'custom';
+        }
+        
+        if (strpos($meta_key, '_extra') !== false) {
+            return 'extra';
+        }
+        
+        if (strpos($meta_key, '_addon') !== false) {
+            return 'addon';
+        }
+        
+        return 'other';
     }
     
     /**
@@ -740,5 +997,93 @@ class WEE_Templates {
         }
         
         return $label;
+    }
+    
+    /**
+     * Update an existing template
+     */
+    public static function update_template($template_id, $name, $columns = array(), $custom_fields = array(), $filters = array(), $column_names = array(), $field_groups = array(), $combined_fields = array(), $description = '', $column_visibility = array(), $column_order = array()) {
+        global $wpdb;
+        
+        error_log('WEE DEBUG: update_template called with combined_fields: ' . print_r($combined_fields, true));
+        
+        self::init();
+        
+        // Check if template exists
+        $existing_template = self::get_template($template_id);
+        if (!$existing_template) {
+            return array('success' => false, 'message' => 'Template not found');
+        }
+        
+        // Prepare data for update
+        $data = array(
+            'name' => sanitize_text_field($name),
+            'description' => sanitize_textarea_field($description),
+            'columns' => is_array($columns) ? json_encode($columns) : $columns,
+            'custom_fields' => is_array($custom_fields) ? json_encode($custom_fields) : $custom_fields,
+            'filters' => is_array($filters) ? json_encode($filters) : $filters,
+            'column_names' => is_array($column_names) ? json_encode($column_names) : $column_names,
+            'field_groups' => is_array($field_groups) ? json_encode($field_groups) : $field_groups,
+            'combined_fields' => is_array($combined_fields) ? json_encode($combined_fields) : $combined_fields,
+            'column_visibility' => is_array($column_visibility) ? json_encode($column_visibility) : $column_visibility,
+            'column_order' => is_array($column_order) ? json_encode($column_order) : $column_order,
+            'updated_at' => current_time('mysql')
+        );
+        
+        error_log('WEE DEBUG: Update data being prepared: ' . print_r($data, true));
+        error_log('WEE DEBUG: Combined fields JSON for update: ' . $data['combined_fields']);
+        error_log('WEE DEBUG: Column order JSON for update: ' . $data['column_order']);
+        
+        // Check if combined_fields column exists, if not add it
+        $table_name = self::$table_name;
+        $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table_name} LIKE 'combined_fields'");
+        
+        if (empty($column_exists)) {
+            $wpdb->query("ALTER TABLE {$table_name} ADD COLUMN combined_fields TEXT AFTER field_groups");
+        }
+        
+        // Check if column_visibility column exists, if not add it
+        $visibility_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table_name} LIKE 'column_visibility'");
+        
+        if (empty($visibility_exists)) {
+            $wpdb->query("ALTER TABLE {$table_name} ADD COLUMN column_visibility TEXT AFTER combined_fields");
+        }
+        
+        // Check if column_order column exists, if not add it
+        $order_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table_name} LIKE 'column_order'");
+        
+        if (empty($order_exists)) {
+            $wpdb->query("ALTER TABLE {$table_name} ADD COLUMN column_order TEXT AFTER column_visibility");
+        }
+        
+        // Update the template
+        error_log('WEE DEBUG: About to update template in database. Table: ' . $table_name . ', Template ID: ' . $template_id);
+        $result = $wpdb->update(
+            $table_name,
+            $data,
+            array('id' => $template_id),
+            array(
+                '%s', // name
+                '%s', // description
+                '%s', // columns
+                '%s', // custom_fields
+                '%s', // filters
+                '%s', // column_names
+                '%s', // field_groups
+                '%s', // combined_fields
+                '%s', // column_visibility
+                '%s'  // updated_at
+            ),
+            array('%d') // where id
+        );
+        
+        error_log('WEE DEBUG: Database update result: ' . print_r($result, true));
+        error_log('WEE DEBUG: Last error: ' . $wpdb->last_error);
+        
+        if ($result !== false) {
+            return array('success' => true, 'message' => 'Template updated successfully', 'template_id' => $template_id);
+        } else {
+            return array('success' => false, 'message' => 'Failed to update template: ' . $wpdb->last_error);
+        }
     }
 } 
